@@ -191,6 +191,88 @@ def delete_data(table, condition):
 
 
 # ==========================================
+# SAMPLE DATA SEEDER
+# ==========================================
+
+def seed_sample_data():
+    """
+    Inserts 5-10 dummy farmers, buyers, listings, and a default food bank
+    when the app first runs. Skips silently if data already exists.
+    """
+    import hashlib
+
+    existing = fetch_one("SELECT COUNT(*) AS cnt FROM users")
+    if existing and existing['cnt'] > 0:
+        return  # Already seeded; don't duplicate records
+
+    def _h(p):
+        return hashlib.sha256(p.encode()).hexdigest()
+
+    # Default food bank
+    insert_data("food_bank", {
+        "name": "Agri-Tech Food Bank",
+        "location": "Nairobi",
+        "total_food_saved_kg": 0,
+    })
+
+    # Admin account
+    insert_data("users", {"username": "admin", "password": _h("admin123"),
+                           "role": "admin", "location": "Nairobi", "phone": "+254700000000"})
+
+    # Sample farmers
+    farmers_data = [
+        ("john_kamau",    "Nakuru",  "+254711000001"),
+        ("grace_wanjiku", "Nyeri",   "+254711000002"),
+        ("peter_ochieng", "Kisumu",  "+254711000003"),
+        ("mary_atieno",   "Eldoret", "+254711000004"),
+        ("samuel_kimani", "Meru",    "+254711000005"),
+    ]
+    farmer_ids = []
+    for username, loc, phone in farmers_data:
+        fid = insert_data("users", {"username": username, "password": _h("farmer123"),
+                                    "role": "farmer", "location": loc, "phone": phone})
+        farmer_ids.append(fid)
+
+    # Sample buyers
+    buyers_data = [
+        ("nairobi_wholesale",   "Nairobi", "+254722000001"),
+        ("coast_traders",       "Mombasa", "+254722000002"),
+        ("rift_valley_market",  "Nakuru",  "+254722000003"),
+        ("western_buyers_co",   "Kisumu",  "+254722000004"),
+        ("highland_grocers",    "Nyeri",   "+254722000005"),
+    ]
+    for username, loc, phone in buyers_data:
+        insert_data("users", {"username": username, "password": _h("buyer123"),
+                               "role": "buyer", "location": loc, "phone": phone})
+
+    # Sample listings (10 entries across the 5 farmers)
+    listings_data = [
+        (farmer_ids[0], "Maize",         500.0,  35.0,  "Nakuru",  "2026-06-20"),
+        (farmer_ids[0], "Potatoes",      300.0,  25.0,  "Nakuru",  "2026-06-25"),
+        (farmer_ids[1], "Tomatoes",      150.0,  60.0,  "Nyeri",   "2026-07-01"),
+        (farmer_ids[1], "Cabbage",       200.0,  20.0,  "Nyeri",   "2026-06-28"),
+        (farmer_ids[2], "Beans",         400.0,  80.0,  "Kisumu",  "2026-07-05"),
+        (farmer_ids[2], "Sorghum",       350.0,  30.0,  "Kisumu",  "2026-06-30"),
+        (farmer_ids[3], "Wheat",         600.0,  45.0,  "Eldoret", "2026-06-15"),
+        (farmer_ids[3], "Sunflower",     250.0,  90.0,  "Eldoret", "2026-07-10"),
+        (farmer_ids[4], "Tea Leaves",    100.0, 200.0,  "Meru",    "2026-07-03"),
+        (farmer_ids[4], "Avocado",       180.0,  50.0,  "Meru",    "2026-07-08"),
+    ]
+    for farmer_id, crop, qty, price, loc, harvest in listings_data:
+        insert_data("listings", {
+            "farmer_id":    farmer_id,
+            "crop_name":    crop,
+            "quantity_kg":  qty,
+            "min_price":    price,
+            "location":     loc,
+            "harvest_date": harvest,
+            "status":       "available",
+        })
+
+    print("Sample data seeded: 1 admin, 5 farmers, 5 buyers, 10 listings, 1 food bank.")
+
+
+# ==========================================
 # SANITY CHECK / DEMONSTRATION WORKFLOW
 # ==========================================
 if __name__ == "__main__":
