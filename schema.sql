@@ -1,4 +1,4 @@
--- Enable Foreign Key
+-- Enable Foreign Keygit
 PRAGMA foreign_keys = ON;
 
 -- 1. USERS TABLE
