@@ -190,8 +190,8 @@ class TransactionManager:
         ))
 
     def process_purchase(self, buyer_id):
-        from listings import ListingManager
-        ListingManager().display_all_listings()
+        import listings
+        listings.view_all_active_listings()
         try:
             lid = IntPrompt.ask("\n[bold yellow]Enter Listing ID to purchase[/bold yellow]")
             if not lid:
