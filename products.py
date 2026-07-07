@@ -1,72 +1,96 @@
 """
 products.py
-Stores and manages crop types
- used in the Agri-Tech Marketplace  .
+Member 3: Mwangi, Wendy — Product & Listing Management
+Stores and manages the registered crop commodity catalogue.
 """
 
-CROPS = [
-    "Maize",
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
+console = Console()
+
+# Master catalogue of tradeable commodities.
+# Sorted alphabetically; call add_crop() to extend at runtime.
+CROPS = sorted([
+    "Avocado",
+    "Bananas",
     "Beans",
-    "Potatoes",
-    "Tomatoes",
-    "Onions",
     "Cabbage",
     "Carrots",
+    "Groundnuts",
+    "Kale",
+    "Maize",
+    "Mangoes",
+    "Onions",
+    "Peas",
+    "Potatoes",
     "Rice",
+    "Sorghum",
+    "Sunflower",
+    "Sweet Potatoes",
+    "Tea Leaves",
+    "Tomatoes",
     "Wheat",
-    "Bananas"
-]
+])
 
 
 def display_crops():
-    """Display all available crops."""
-    print("\nAvailable Crops:")
-    for index, crop in enumerate(CROPS, start=1):
-        print(f"{index}. {crop}")
+    """Render all registered commodities in a numbered rich table."""
+    table = Table(
+        title="Registered Market Commodities",
+        box=box.SIMPLE_HEAD,
+        border_style="green",
+    )
+    table.add_column("No.", style="cyan", justify="right", width=4)
+    table.add_column("Crop Name", style="bold green")
+    for i, crop in enumerate(CROPS, 1):
+        table.add_row(str(i), crop)
+    console.print(table)
 
 
 def get_crop(choice):
-    """Return crop name based on user's choice."""
+    """Return the crop name at the given 1-based index, or None."""
     if 1 <= choice <= len(CROPS):
         return CROPS[choice - 1]
     return None
 
+
 def crop_exists(crop_name):
-    """Check if a crop exists in the list."""
-    return crop_name.title() in CROPS
+    """Return True if crop_name (case-insensitive) is in the catalogue."""
+    return crop_name.strip().title() in CROPS
+
 
 def add_crop(crop_name):
-    """Add a new crop to the list if it doesn't already exist."""
-    crop_name = crop_name.title()
-
-    if crop_name not in CROPS:
-        CROPS.append(crop_name)
-        print(f"{crop_name} has been added to the list of crops.")
+    """Add a new crop to the in-memory catalogue (persists for this session)."""
+    name = crop_name.strip().title()
+    if name not in CROPS:
+        CROPS.append(name)
+        CROPS.sort()
+        console.print(f"[green]'{name}' added to the commodity list.[/green]")
     else:
-        print(f"{crop_name} already exists in the list of crops.")
-    
+        console.print(f"[yellow]'{name}' is already registered.[/yellow]")
+
+
 def view_all_crops():
-    """Return a list of all crops."""
-    print("\nCurrent Crops:")
-    for crop in sorted(CROPS):
-        print(f"- {crop}")
+    """Display the full crop catalogue."""
+    display_crops()
+
 
 if __name__ == "__main__":
+    from rich.prompt import Prompt
+
     while True:
-        print("\nCrop Management Menu:")
-        print("1. View all crops")
-        print("2. Add a new crop")
-        print("3. Exit")
-
-        choice = input("Enter your choice: ").strip()
-
+        console.print("\n[bold]Crop Management Menu:[/bold]")
+        console.print("  1. View all crops")
+        console.print("  2. Add a new crop")
+        console.print("  3. Exit")
+        choice = Prompt.ask("Choice", choices=["1", "2", "3"])
         if choice == "1":
             view_all_crops()
         elif choice == "2":
-            new_crop = input("Enter the name of the new crop: ").strip()
+            new_crop = Prompt.ask("New crop name").strip()
             add_crop(new_crop)
         elif choice == "3":
-            print("Exiting Crop Management.")
+            console.print("[cyan]Exiting crop management.[/cyan]")
             break
-        else:
-            print("Invalid choice. Please try again.")

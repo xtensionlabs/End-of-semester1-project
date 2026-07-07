@@ -1,0 +1,11 @@
+crop_name,quantity_kg,min_price,location,harvest_date
+Maize,250,30,Kisumu,2026-08-01
+Beans,100,75,Eldoret,2026-08-10
+Tomatoes,80,55,Nyeri,2026-07-25
+Cabbage,150,18,Nakuru,2026-07-30
+Potatoes,400,22,Meru,2026-08-05
+Wheat,300,40,Eldoret,2026-08-15
+Avocado,60,45,Meru,2026-08-20
+Kale,90,15,Nairobi,2026-07-20
+INVALID_CROP,100,50,Nairobi,2026-08-01
+Sorghum,200,28,Kisumu,2026-08-12
