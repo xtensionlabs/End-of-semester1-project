@@ -191,10 +191,11 @@ class ListingManager:
             console.print("[bold red]Access Denied: Only Farmers can bulk-import listings.[/bold red]")
             return
 
-        filepath = Prompt.ask("Path to CSV file").strip()
+        filepath = Prompt.ask("Path to CSV file", default="data/sample_listings.csv").strip()
         if not os.path.exists(filepath):
             console.print(f"[bold red]File not found: '{filepath}'[/bold red]")
             console.print("[dim]Required columns: crop_name, quantity_kg, min_price, location, harvest_date[/dim]")
+            console.print("[dim]Sample file: data/sample_listings.csv[/dim]")
             return
 
         success = skipped = 0

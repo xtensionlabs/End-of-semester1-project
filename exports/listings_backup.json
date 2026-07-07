@@ -1,0 +1,92 @@
+[
+    {
+        "listing_id": 1,
+        "farmer_name": "john_kamau",
+        "crop_name": "Maize",
+        "quantity_kg": 500.0,
+        "min_price": 35.0,
+        "location": "Nakuru",
+        "status": "available"
+    },
+    {
+        "listing_id": 2,
+        "farmer_name": "john_kamau",
+        "crop_name": "Potatoes",
+        "quantity_kg": 300.0,
+        "min_price": 25.0,
+        "location": "Nakuru",
+        "status": "available"
+    },
+    {
+        "listing_id": 3,
+        "farmer_name": "grace_wanjiku",
+        "crop_name": "Tomatoes",
+        "quantity_kg": 150.0,
+        "min_price": 60.0,
+        "location": "Nyeri",
+        "status": "available"
+    },
+    {
+        "listing_id": 4,
+        "farmer_name": "grace_wanjiku",
+        "crop_name": "Cabbage",
+        "quantity_kg": 200.0,
+        "min_price": 20.0,
+        "location": "Nyeri",
+        "status": "available"
+    },
+    {
+        "listing_id": 5,
+        "farmer_name": "peter_ochieng",
+        "crop_name": "Beans",
+        "quantity_kg": 400.0,
+        "min_price": 80.0,
+        "location": "Kisumu",
+        "status": "available"
+    },
+    {
+        "listing_id": 6,
+        "farmer_name": "peter_ochieng",
+        "crop_name": "Sorghum",
+        "quantity_kg": 350.0,
+        "min_price": 30.0,
+        "location": "Kisumu",
+        "status": "available"
+    },
+    {
+        "listing_id": 7,
+        "farmer_name": "mary_atieno",
+        "crop_name": "Wheat",
+        "quantity_kg": 600.0,
+        "min_price": 45.0,
+        "location": "Eldoret",
+        "status": "available"
+    },
+    {
+        "listing_id": 8,
+        "farmer_name": "mary_atieno",
+        "crop_name": "Sunflower",
+        "quantity_kg": 250.0,
+        "min_price": 90.0,
+        "location": "Eldoret",
+        "status": "available"
+    },
+    {
+        "listing_id": 9,
+        "farmer_name": "samuel_kimani",
+        "crop_name": "Tea Leaves",
+        "quantity_kg": 100.0,
+        "min_price": 200.0,
+        "location": "Meru",
+        "status": "available"
+    },
+    {
+        "listing_id": 10,
+        "farmer_name": "samuel_kimani",
+        "crop_name": "Avocado",
+        "quantity_kg": 180.0,
+        "min_price": 50.0,
+        "location": "Meru",
+        "status": "available"
+    }
+]

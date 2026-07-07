@@ -56,7 +56,7 @@ def check_price_alerts():
         # If the price is less than 70% of the average, trigger alert
         if price < (avg_price * 0.70):
             warning = (
-                f"⚠️  [bold yellow]Listing #{item['listing_id']} ({item['crop_name'].title()})[/bold yellow] "
+                f"[bold yellow]ALERT: Listing #{item['listing_id']} ({item['crop_name'].title()})[/bold yellow] "
                 f"at [bold red]KSH {price}/kg[/bold red] in {item['location']} is significantly below "
                 f"the current market average (KSH {avg_price:.2f}/kg)."
             )
@@ -100,7 +100,7 @@ def display_dashboard_view():
 
     if not alerts:
         # No bad prices found -> Show a nice green success message
-        alert_text = "[bold green]✓ All current market prices are stable and fair.[/bold green]"
+        alert_text = "[bold green]All current market prices are stable and fair.[/bold green]"
         alert_border = "blue"
     else:
         # Bad prices found -> Combine them and show a red warning box
