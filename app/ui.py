@@ -1,128 +1,187 @@
 """
 ui.py — Interactive Terminal Interface
 ========================================
-Member : Maina, Njeri
-Module : UI/UX + Reporting & Dashboard
+Member  : Maina, Njeri
+Module  : UI/UX + Reporting & Dashboard
+Team    : Lab 2, Group 5 — Moringa School
 
-Objective
----------
-Serve as the single shell that ties every team module together into one
-cohesive, role-based terminal application.  A farmer, buyer, or admin each
-sees only the actions relevant to their role.
+Purpose
+-------
+This file is the single "shell" that ties every team module together into one
+cohesive, role-based terminal application.  It owns three responsibilities:
+  1. Presenting menus and collecting user input (Interactive I/O)
+  2. Deciding which features to show based on who is logged in (Selection)
+  3. Keeping the application alive between actions (Iteration)
 
-Technical concepts demonstrated here
---------------------------------------
-  - Selection structures  : role-based if/elif routing in run_application()
-  - Iterative structures  : while True main event loop, for loop in menu builder
-  - Functions             : each menu is its own function; helpers are factored out
-  - Error handling        : _run_safely() wraps every action; top-level try/except
-  - Interactive I/O       : rich Prompt throughout; progress-bar UX feedback
-  - Data types & casting  : role stored as str, user_id as int passed to modules
+Technical Concepts Demonstrated
+---------------------------------
+  INTERACTIVE I/O      — Prompt.ask() collects validated keyboard input;
+                         console.print() renders rich, coloured output.
+  ITERATIVE STRUCTURES — `while True` in run_application() is the main event
+                         loop.  A second `while` drives the loading-bar
+                         animation.  A `for` loop builds every menu table.
+  SELECTION STRUCTURES — Nested if/elif chains route each menu choice AND
+                         route each user role to the correct sub-menu.
+  FUNCTIONS            — Every menu is its own named function; shared logic
+                         (_render_menu, _run_safely, _wait) is factored out
+                         so it is written once and reused everywhere.
+  ERROR HANDLING       — _run_safely() wraps every action in try/except so a
+                         single crash in one feature never kills the whole app.
+  DATA TYPES & CASTING — role is read as str; user_id is cast to int before
+                         being forwarded to module functions that expect an int.
 """
 
-import os
-import sys
-import time
+import os       # os.system("cls") — clear screen between menu renders
+import sys      # sys.exit()       — clean application shutdown
+import time     # time.sleep()     — pacing for the loading-bar animation
 
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
+from rich.panel   import Panel
+from rich.table   import Table
+from rich.prompt  import Prompt
 from rich.progress import (
     Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
 )
 
 # ── Team module imports ────────────────────────────────────────────────────
-import database       # Member 1: SQLite layer
-import auth           # Member 2: sessions & roles
-import listings       # Member 3: crop listings
-import products       # Member 3: commodity catalogue
-import search         # Member 4: search engine
-import matching       # Member 4: smart matcher
-import transactions   # Member 5: purchase flow
-import donations      # Member 5: food bank tracking
-import dashboard      # Member 6: statistics dashboard
-import reports        # Member 6: CSV / JSON / text exports
+# Each import gives this file access to all public functions in that module.
+import database       # Member 1 — SQLite layer (init, seed, CRUD helpers)
+import auth           # Member 2 — authentication (login, logout, roles)
+import listings       # Member 3 — crop listing management
+import products       # Member 3 — commodity catalogue
+import search         # Member 4 — keyword / filter search engine
+import matching       # Member 4 — smart location-based matching algorithm
+import transactions   # Member 5 — purchase flow and transaction history
+import donations      # Member 5 — food bank tracking and impact stats
+import dashboard      # Member 6 — analytics dashboard and price alerts
+import reports        # Member 6 — CSV / JSON / plain-text report exports
 
+# Shared console instance — every print() in this file goes through Rich
+# so colours, tables, and panels render consistently.
 console = Console()
 
 
 # ===========================================================================
-# SECTION 1 — SCREEN CHROME (header, footer, loading bar)
+# SECTION 1 — SCREEN CHROME
+# Helpers that draw the persistent header, footer, and loading animation.
+# These are called at the top of every loop iteration so the brand and
+# session status are always visible regardless of which menu is active.
 # ===========================================================================
 
 def display_header():
     """
-    Render the application title banner at the top of every screen.
-    Called at the start of each loop iteration so the brand is always visible.
+    Print the application title banner.
+
+    Uses Rich markup ([bold white on green]) to produce a full-width
+    colour bar.  Called once per loop iteration so the banner reappears
+    after every action.
     """
+    # Interactive output: console.print sends formatted text to the terminal.
     console.print(
         "[bold white on green]   AGRI-TECH DIGITAL MARKETPLACE v1.0   [/bold white on green]",
         justify="center",
     )
-    console.print()
+    console.print()   # blank line for visual breathing room
 
 
 def display_footer(user_info=None):
     """
-    Render a status bar at the bottom of the screen.
+    Print a status bar showing who is logged in and their role.
 
     Parameters
     ----------
-    user_info : dict or None
-        The currently logged-in user dict (from auth.get_current_user()),
-        or None when no session is active.
+    user_info : dict | None
+        The dict returned by auth.get_current_user().
+        Pass None when no user is logged in.
+
+    Data types demonstrated
+    -----------------------
+    user_info is either a dict (logged-in state) or None (logged-out state).
+    We use a selection structure (if/else) to produce a different string
+    for each case.
     """
-    console.print()
-    # Type check: show session info when a user dict is present
+    console.print()  # blank line above the footer bar
+
+    # SELECTION: choose which status text to build based on login state.
     if user_info:
-        status = f"Logged in: {user_info['username']}  |  Role: {user_info['role'].capitalize()}"
+        # .capitalize() converts 'farmer' → 'Farmer' for display purposes
+        # (the database stores roles in lowercase; we capitalise for the UI).
+        status = (
+            f"Logged in: {user_info['username']}"
+            f"  |  Role: {user_info['role'].capitalize()}"
+        )
     else:
+        # No active session — prompt the visitor to register or log in.
         status = "Not logged in — Register or Log In to continue"
 
+    # Interactive output: print the status bar in a blue background band.
     console.print(
-        f"[bold white on blue]  {status}  |  Use menu numbers to navigate  [/bold white on blue]",
+        f"[bold white on blue]  {status}"
+        f"  |  Use menu numbers to navigate  [/bold white on blue]",
         justify="center",
     )
 
 
 def simulate_loading_bar(action_text):
     """
-    Display an animated progress bar for state transitions (login, logout).
-    Purely cosmetic — improves the perceived responsiveness of the app.
+    Display a short animated progress bar during login / logout transitions.
+
+    This is purely cosmetic — it gives the user visual feedback that
+    something is happening rather than jumping straight to the next screen.
 
     Parameters
     ----------
-    action_text : str  Text shown beside the spinner, e.g. 'Signing in...'
+    action_text : str
+        Label shown beside the spinner, e.g. 'Signing in securely...'
+
+    Iterative structure demonstrated
+    ---------------------------------
+    The `while not progress.finished` loop advances the bar by 5% every
+    40 ms until it reaches 100%, then the Progress context manager exits.
     """
     console.print()
+
+    # Rich Progress context manager — handles the live-updating display.
     with Progress(
-        SpinnerColumn(),
-        TextColumn("[cyan]{task.description}[/cyan]"),
-        BarColumn(bar_width=40, complete_style="green", finished_style="bold green"),
-        TaskProgressColumn(),
+        SpinnerColumn(),                            # animated spinner icon
+        TextColumn("[cyan]{task.description}[/cyan]"),  # action label
+        BarColumn(bar_width=40,
+                  complete_style="green",
+                  finished_style="bold green"),     # the fill bar itself
+        TaskProgressColumn(),                       # percentage readout
         console=console,
     ) as progress:
+
+        # Add a task with a total of 100 "units" (percent steps).
         task = progress.add_task(action_text, total=100)
-        # Iterative structure: advance the bar in small steps until complete
+
+        # ITERATIVE STRUCTURE — while loop:
+        # Keep advancing the bar until the task reaches 100%.
+        # Each iteration sleeps 40 ms then adds 5 percentage points.
+        # Total duration ≈ 20 iterations × 40 ms = ~0.8 seconds.
         while not progress.finished:
-            time.sleep(0.04)
-            progress.update(task, advance=5)
-    time.sleep(0.3)
+            time.sleep(0.04)            # pause 40 milliseconds
+            progress.update(task, advance=5)  # add 5% to the bar
+
+    time.sleep(0.3)   # brief pause so the user can see the completed bar
 
 
 def show_welcome_screen():
     """
-    Render the public landing panel with the project's SDG mission statement.
-    Shown every time the app is at the login/register screen.
+    Render the public landing panel with the SDG mission statement.
+
+    Shown on every iteration where no user is logged in, so the platform's
+    purpose is immediately visible to anyone who opens the app.
     """
+    # Interactive output: a Rich Panel acts as a styled text box with a border.
     console.print(Panel(
         "[bold green]Welcome to the Agri-Tech Digital Marketplace[/bold green]\n\n"
-        "[italic cyan]Empowering Farmers.  Eliminating Middlemen.  Feeding Communities.[/italic cyan]\n\n"
+        "[italic cyan]Empowering Farmers.  "
+        "Eliminating Middlemen.  Feeding Communities.[/italic cyan]\n\n"
         "[dim]Supporting:\n"
-        "  SDG 1  — No Poverty             (fair farm-gate prices)\n"
-        "  SDG 2  — Zero Hunger            (2% micro-donation to food banks)\n"
-        "  SDG 8  — Decent Work & Growth   (direct digital market access)\n"
+        "  SDG 1  — No Poverty              (fair farm-gate prices)\n"
+        "  SDG 2  — Zero Hunger             (2% micro-donation to food banks)\n"
+        "  SDG 8  — Decent Work & Growth    (direct digital market access)\n"
         "  SDG 12 — Responsible Consumption (reducing food waste)[/dim]",
         border_style="green",
         padding=(1, 4),
@@ -133,40 +192,74 @@ def show_welcome_screen():
 
 # ===========================================================================
 # SECTION 2 — GENERIC UI HELPERS
+# Reusable utilities used by all four menus (visitor, farmer, buyer, admin).
+# Factoring these out means the logic is written once and never duplicated.
 # ===========================================================================
 
 def _render_menu(title, style, options):
     """
-    Build and print a numbered menu table, then return the user's selection.
+    Build a numbered menu table, print it, then prompt for a valid choice.
 
     Parameters
     ----------
-    title   : str   Heading text for the table.
-    style   : str   Rich colour name applied to option numbers (e.g. 'green').
-    options : list  List of (number_str, description_str) tuples.
+    title   : str   — heading text rendered above the table
+    style   : str   — Rich colour name for the option-number column
+    options : list  — list of (number_str, description_str) tuples,
+                      e.g. [("1", "Add listing"), ("2", "View listings")]
 
     Returns
     -------
-    str  The number string the user selected.
+    str  — the option number the user typed (always a member of valid_choices)
+
+    Functions demonstrated
+    ----------------------
+    _render_menu() is a reusable function that accepts parameters and
+    returns a value.  Every menu in this file calls it instead of
+    re-implementing table construction and input validation each time.
+
+    Iterative structure demonstrated
+    ---------------------------------
+    The `for` loop on line ~163 iterates over the `options` list.
+    Each iteration unpacks one (number, label) pair and adds a row to
+    the Rich table.  Without this loop we would need one table.add_row()
+    call per option — duplicated code for every menu change.
+
+    Interactive I/O demonstrated
+    -----------------------------
+    Prompt.ask() is Rich's validated input function.  Passing `choices`
+    means it will ONLY accept strings that are in that list — any other
+    input is rejected and the prompt repeats automatically, preventing
+    invalid menu selections from reaching the if/elif routing logic.
     """
+    # Build a Rich Table to display the numbered options in a styled box.
     table = Table(
         title=title,
         title_style=f"bold {style}",
         show_header=True,
         header_style=f"bold {style}",
-        expand=True,
+        expand=True,          # stretch to the full terminal width
     )
     table.add_column("Option", style=style, width=8, justify="center")
     table.add_column("What would you like to do?")
 
-    # Iterative structure: populate each row of the menu table
+    # ITERATIVE STRUCTURE — for loop:
+    # Each pass through the loop handles one menu option.
+    # `number` is a str like "1"; `label` is the description string.
     for number, label in options:
-        table.add_row(number, label)
+        table.add_row(number, label)   # add one row per option
 
+    # Interactive output: print the completed table to the terminal.
     console.print(table)
 
-    # Collect valid choice strings for the Prompt validator
+    # Build the list of valid responses from the same options list.
+    # This is a list comprehension — a compact for-loop that builds a list.
+    # e.g. [("1","Add"), ("2","View")] → valid_choices = ["1", "2"]
     valid_choices = [num for num, _ in options]
+
+    # INTERACTIVE INPUT — Prompt.ask():
+    # Displays the question and blocks until the user types a valid choice.
+    # `choices=valid_choices` makes Rich automatically re-prompt on bad input.
+    # `show_choices=False` keeps the prompt clean (the table already shows them).
     return Prompt.ask(
         "\nType the number of your choice",
         choices=valid_choices,
@@ -176,48 +269,86 @@ def _render_menu(title, style, options):
 
 def _run_safely(fn, *args, **kwargs):
     """
-    Execute a callable with error handling so one broken feature cannot
-    crash the whole application.
+    Call a function and absorb any exception it raises.
+
+    This is the application's primary defence against runtime crashes.
+    Every menu action is wrapped here so that if a module has a bug,
+    the user sees a friendly message and returns to the menu — the app
+    never terminates unexpectedly.
 
     Parameters
     ----------
-    fn      : callable  The function to call.
-    *args   : positional arguments forwarded to fn.
-    **kwargs: keyword arguments forwarded to fn.
+    fn       : callable — the function to call
+    *args    : positional arguments forwarded to fn
+    **kwargs : keyword arguments forwarded to fn
+
+    Error handling demonstrated
+    ----------------------------
+    Two except clauses cover different failure categories:
+      KeyboardInterrupt — user pressed Ctrl+C mid-flow (soft cancel)
+      Exception         — any other runtime error (bug, DB failure, etc.)
+    Both cases are handled gracefully; neither propagates up to crash the app.
     """
     try:
+        # Attempt to call the function with whatever arguments were passed.
         fn(*args, **kwargs)
+
     except KeyboardInterrupt:
-        # User pressed Ctrl+C mid-action — treat as a soft cancel
+        # The user pressed Ctrl+C during input — treat as a voluntary cancel.
+        # We do NOT re-raise, so the main while-loop continues normally.
         console.print("\n[yellow]Action cancelled.[/yellow]")
+
     except Exception as err:
-        # Catch all other runtime errors and show a friendly message
-        console.print(f"\n[bold red]An unexpected error occurred:[/bold red] {err}")
-        console.print("[dim]Please try again or contact your administrator.[/dim]")
+        # Catch-all for any other runtime error (TypeError, ValueError,
+        # sqlite3.Error, etc.).  Print a human-readable message and let
+        # the loop bring the user back to the menu.
+        console.print(
+            f"\n[bold red]An unexpected error occurred:[/bold red] {err}"
+        )
+        console.print(
+            "[dim]Please try again or contact your administrator.[/dim]"
+        )
 
 
 def _wait():
     """
-    Pause and wait for the user to press Enter before returning to the menu.
-    Gives the user time to read the output of the previous action.
+    Pause the UI and wait for the user to press Enter.
+
+    Called after every action (except logout) so the user has time to
+    read the output before the screen is cleared and the menu redraws.
+
+    Interactive I/O demonstrated
+    -----------------------------
+    Prompt.ask with default="" returns immediately when the user presses
+    Enter without typing anything, making it a clean "press any key" pause.
     """
-    Prompt.ask("\n[dim]Press Enter to return to the menu[/dim]", default="")
+    Prompt.ask(
+        "\n[dim]Press Enter to return to the menu[/dim]",
+        default=""   # accept an empty response — user just presses Enter
+    )
 
 
 # ===========================================================================
-# SECTION 3 — VISITOR MENU (before login)
+# SECTION 3 — VISITOR MENU  (shown when no user is logged in)
 # ===========================================================================
 
 def handle_visitor_menu():
     """
-    Menu shown to unauthenticated users.
+    Present the public-facing menu to unauthenticated visitors.
 
     Options
     -------
-    1. Register a new account
-    2. Log in to an existing account
-    3. View the platform's global donation impact (public)
-    4. Exit the application
+    1. Register — create a new farmer or buyer account
+    2. Log in   — authenticate an existing account
+    3. Impact   — view global food bank stats (public, no login needed)
+    4. Exit     — close the application
+
+    Selection structure demonstrated
+    ----------------------------------
+    The if/elif chain below maps each numeric choice to a specific action.
+    This is equivalent to a switch/case in other languages.  Only one
+    branch executes per iteration because the conditions are mutually
+    exclusive (a string can only equal one value at a time).
     """
     options = [
         ("1", "Register a new account"),
@@ -225,27 +356,36 @@ def handle_visitor_menu():
         ("3", "View global food bank & donation impact"),
         ("4", "Exit the application"),
     ]
+    # _render_menu prints the table and returns the validated choice string.
     choice = _render_menu("MAIN MENU", "green", options)
 
-    # Selection structure: route each choice to the correct module function
+    # SELECTION STRUCTURE — if/elif chain:
+    # Route the validated choice to the correct module function.
     if choice == "1":
+        # auth.register() prompts for username, password, role, location, phone.
         _run_safely(auth.register)
         _wait()
 
     elif choice == "2":
-        # login() returns True on success; animate the transition if successful
+        # auth.login() returns True on success, False on bad credentials.
         success = auth.login()
         if success:
+            # Only animate if login succeeded — no point animating a failure.
             simulate_loading_bar("Signing in securely...")
+        # If login failed, auth.login() already printed the error; loop continues.
 
     elif choice == "3":
-        # Public visibility: anyone can see how much the platform has donated
+        # The global impact view is intentionally public — even visitors can
+        # see how much the platform has donated, which builds trust.
         _run_safely(donations.DonationManager().display_global_impact)
         _wait()
 
     elif choice == "4":
+        # sys.exit(0) signals a clean shutdown (exit code 0 = success).
         console.print(
-            "\n[bold green]Thank you for using the Agri-Tech Marketplace. Goodbye![/bold green]"
+            "\n[bold green]"
+            "Thank you for using the Agri-Tech Marketplace. Goodbye!"
+            "[/bold green]"
         )
         sys.exit(0)
 
@@ -256,14 +396,23 @@ def handle_visitor_menu():
 
 def handle_farmer_menu(user):
     """
-    Role-based menu for authenticated farmers.
+    Present the role-restricted menu for authenticated farmers.
 
-    Provides listing management, market visibility, sales tracking,
-    and price-alert analytics.
+    A farmer can manage their own listings, view the full market board,
+    track their sales, analyse pricing trends, and bulk-import via CSV.
 
     Parameters
     ----------
-    user : dict  The current farmer's session dict from auth.get_current_user().
+    user : dict
+        The session dict returned by auth.get_current_user().
+        Relevant keys used here: user["user_id"] (int), user["role"] (str).
+
+    Data types & casting demonstrated
+    -----------------------------------
+    user["user_id"] comes from SQLite as an int, but we pass it explicitly
+    as int() to make the type contract clear to anyone reading this code.
+    user["role"] is a str; we never compare it here — role checking happened
+    in run_application() before this function was called.
     """
     options = [
         ("1", "Add a new crop listing to sell"),
@@ -278,49 +427,66 @@ def handle_farmer_menu(user):
     ]
     choice = _render_menu("FARMER MENU", "green", options)
 
+    # SELECTION STRUCTURE — nested if/elif:
+    # Each branch maps to a specific feature in a team-mate's module.
+    # _run_safely() wraps every call so a bug in one feature can't crash
+    # the whole menu system.
+
     if choice == "1":
-        # Calls listings.py — validates crop name, quantity, price, date
+        # listings.add_new_listing() prompts for crop name, quantity (kg),
+        # price (KSH/kg), location, and harvest date — all validated inside.
         _run_safely(listings.add_new_listing)
 
     elif choice == "2":
-        # Shows only this farmer's own listings (filtered by farmer_id)
+        # view_my_listings() queries the DB for listings WHERE farmer_id
+        # matches the currently logged-in user, so farmers only see their own.
         _run_safely(listings.view_my_listings)
 
     elif choice == "3":
-        # Ownership check is performed inside edit_or_delete_listing()
+        # edit_or_delete_listing() checks ownership before allowing changes —
+        # a farmer cannot edit another farmer's listing.
         _run_safely(listings.edit_or_delete_listing)
 
     elif choice == "4":
-        # Farmers can browse competitor prices to set fair listings
+        # All active listings are public — farmers use this to benchmark
+        # their prices against competitors in the same crop category.
         _run_safely(listings.view_all_active_listings)
 
     elif choice == "5":
-        # TransactionManager filters by farmer_id on the listings they own
+        # DATA TYPE: user["user_id"] is an int primary key.
+        # "farmer" (str) tells TransactionManager which SQL JOIN branch to use
+        # — the farmer sees sales of their own listings, not purchases.
         _run_safely(
             transactions.TransactionManager().display_transactions,
-            user["user_id"],   # int: current farmer's primary key
-            "farmer",          # str: controls which SQL JOIN branch is used
+            user["user_id"],   # int — filters transactions by this farmer
+            "farmer",          # str — selects the farmer-perspective query
         )
 
     elif choice == "6":
-        # Loads the stats + price-undercutting alerts from dashboard.py
+        # Aggregates platform stats and highlights listings priced >30% below
+        # the market average for that crop (price undercutting alerts).
         _run_safely(dashboard.display_dashboard_view)
 
     elif choice == "7":
-        # File I/O feature: reads a CSV and inserts multiple listings at once.
-        # The CSV must be at data/sample_listings.csv or a path the farmer types.
-        # Columns required: crop_name, quantity_kg, min_price, location, harvest_date
+        # FILE INPUT: reads a .csv file and bulk-inserts multiple listings.
+        # Required columns: crop_name, quantity_kg, min_price, location, harvest_date.
+        # Invalid rows (unknown crop, bad number) are skipped with a warning.
+        # Sample file available at: data/sample_listings.csv
         _run_safely(listings.bulk_import_from_csv)
 
     elif choice == "8":
-        # Updates the 'location' column for this user in the database
+        # Updates the location column for this user_id in the users table.
         _run_safely(auth.change_location)
 
     elif choice == "9":
+        # Logout: animate the transition, then clear the session variable.
+        # `return` here skips the _wait() call at the bottom — the screen
+        # will clear and show the visitor menu on the next loop iteration.
         simulate_loading_bar("Signing out securely...")
         auth.logout_user()
-        return  # Skip _wait() — user is being sent to the login screen
+        return   # exit this function; do NOT call _wait()
 
+    # Pause after every action except logout so the user can read the output.
     _wait()
 
 
@@ -330,14 +496,23 @@ def handle_farmer_menu(user):
 
 def handle_buyer_menu(user):
     """
-    Role-based menu for authenticated buyers.
+    Present the role-restricted menu for authenticated buyers.
 
-    Provides browsing, smart location-based matching, purchasing (with the
-    automatic 2% food-bank donation), and personal impact tracking.
+    A buyer can browse listings, run filtered searches, use the smart
+    location-matching algorithm, purchase crops (with the 2% donation),
+    review their purchase history, and check their personal donation impact.
 
     Parameters
     ----------
-    user : dict  The current buyer's session dict.
+    user : dict
+        Session dict from auth.get_current_user().
+
+    Data types & casting demonstrated
+    -----------------------------------
+    int(user["user_id"]) — explicit cast before forwarding to module
+    functions that store the value in the database as an INTEGER column.
+    Although SQLite is flexible about types, being explicit makes the
+    intent clear and prevents subtle bugs if the value arrives as a string.
     """
     options = [
         ("1", "Browse all available crops"),
@@ -351,48 +526,63 @@ def handle_buyer_menu(user):
     ]
     choice = _render_menu("BUYER MENU", "blue", options)
 
+    # SELECTION STRUCTURE — if/elif chain for buyer-specific actions.
+
     if choice == "1":
-        # Shows all listings with status = 'available', joined with farmer info
+        # Shows all listings where status = 'available', joined with the
+        # farmer's username so the buyer knows who they're buying from.
         _run_safely(listings.view_all_active_listings)
 
     elif choice == "2":
-        # Interactive filter form: crop name, location, price range, sort order
+        # SearchEngine.search_interactive() prompts for optional filters
+        # (crop name, location, min/max price, sort order) then runs a
+        # parameterized SQL query and displays matching listings.
         _run_safely(search.SearchEngine().search_interactive)
 
     elif choice == "3":
-        # Pass user_id so the matcher pre-fills the buyer's stored location
-        # Type: user["user_id"] is an int — cast explicitly for safety
-        _run_safely(matching.MatchingEngine().match_interactive, int(user["user_id"]))
+        # DATA TYPE CAST: user["user_id"] → int, forwarded so the matcher
+        # can look up the buyer's stored location from the users table and
+        # pre-fill the location prompt.
+        _run_safely(
+            matching.MatchingEngine().match_interactive,
+            int(user["user_id"])   # int — used to fetch buyer's saved location
+        )
 
     elif choice == "4":
-        # The buy flow auto-calculates and stores the 2% donation amount
+        # process_purchase() shows all available listings, asks which one
+        # and what quantity, calculates total_price and donation_amount
+        # (2% of total_price), then writes both to the transactions table.
         _run_safely(
             transactions.TransactionManager().process_purchase,
-            int(user["user_id"]),
+            int(user["user_id"]),   # int — stored as buyer_id in transactions
         )
 
     elif choice == "5":
-        # Fetches all transactions where buyer_id = this user
+        # "buyer" tells TransactionManager to join on buyer_id = this user,
+        # showing only purchases made by this buyer (not their non-existent sales).
         _run_safely(
             transactions.TransactionManager().display_transactions,
             int(user["user_id"]),
-            "buyer",
+            "buyer",   # str — selects the buyer-perspective SQL query
         )
 
     elif choice == "6":
-        # Shows totals: purchases made, food saved, KSH donated, meals provided
+        # Totals: number of purchases, kg of food bought (= food saved from waste),
+        # KSH donated, and estimated meals that donation could provide.
         _run_safely(
             donations.DonationManager().display_personal_impact,
             int(user["user_id"]),
         )
 
     elif choice == "7":
+        # Lets the buyer update their delivery location stored in the DB —
+        # the matching algorithm uses this as the default buyer location.
         _run_safely(auth.change_location)
 
     elif choice == "8":
         simulate_loading_bar("Signing out securely...")
         auth.logout_user()
-        return
+        return   # skip _wait(); return to visitor menu on next loop iteration
 
     _wait()
 
@@ -403,14 +593,17 @@ def handle_buyer_menu(user):
 
 def handle_admin_menu(user):
     """
-    Role-based menu for platform administrators.
+    Present the role-restricted menu for platform administrators.
 
-    Provides full platform oversight: system analytics, all transaction
-    history, donation records, crop catalogue management, and data exports.
+    An admin has full read visibility across all users, transactions, and
+    donations, plus the ability to manage the crop catalogue and export data.
 
     Parameters
     ----------
-    user : dict  The current admin's session dict.
+    user : dict
+        Session dict from auth.get_current_user().  The `user` parameter
+        is accepted here for consistency with the other menu functions even
+        though admin queries don't filter by a specific user_id.
     """
     options = [
         ("1", "System analytics dashboard"),
@@ -424,124 +617,194 @@ def handle_admin_menu(user):
     ]
     choice = _render_menu("ADMIN MENU", "red", options)
 
+    # SELECTION STRUCTURE — if/elif for admin-only features.
+
     if choice == "1":
-        # Stats table + price-undercutting alerts (dashboard.py)
+        # Aggregated platform statistics + price-alert panel.
         _run_safely(dashboard.display_dashboard_view)
 
     elif choice == "2":
-        # Admin role shows BOTH buyer name and farmer name columns
+        # Passing None as user_id and "admin" as role tells
+        # TransactionManager to skip the user_id filter and return ALL rows,
+        # showing both the buyer name and the farmer name in the output.
         _run_safely(
             transactions.TransactionManager().display_transactions,
-            None,    # user_id not needed for admin — fetches all rows
-            "admin",
+            None,      # no user_id filter — admin sees every transaction
+            "admin",   # str — selects the admin-perspective SQL query
         )
 
     elif choice == "3":
-        # Full donation log with donor names and food bank info
+        # Full donation ledger: every entry with donor name, amount, date,
+        # and the food bank it was attributed to.
         _run_safely(donations.DonationManager().display_donations)
 
     elif choice == "4":
-        # View catalogue and optionally add a new commodity
+        # Calls the sub-function below — separated to keep this function short.
         _run_safely(_admin_manage_crops)
 
     elif choice == "5":
-        # Returns (bool, message) tuple — unpack and display the message
+        # FILE OUTPUT: export_transactions_to_csv() writes exports/sales_report.csv
+        # and returns a (bool, message) tuple.  We unpack it and print the message.
         ok, msg = reports.export_transactions_to_csv()
-        console.print(msg)
+        console.print(msg)   # msg is a Rich markup string (green = success, red = error)
 
     elif choice == "6":
+        # FILE OUTPUT: exports/listings_backup.json — a JSON array of all listings.
         ok, msg = reports.export_listings_to_json()
         console.print(msg)
 
     elif choice == "7":
-        # Writes a human-readable .txt summary to disk
+        # FILE OUTPUT: exports/summary_report.txt — human-readable 5-section report
+        # covering KPIs, top crops, top farmers, top buyers, and food bank impact.
         ok, msg = reports.generate_text_report()
         console.print(msg)
 
     elif choice == "8":
         simulate_loading_bar("Signing out securely...")
         auth.logout_user()
-        return
+        return   # skip _wait(); return to visitor menu on next loop iteration
 
     _wait()
 
 
 def _admin_manage_crops():
     """
-    Sub-flow: display the crop catalogue and let an admin add a new commodity.
-    Separated from handle_admin_menu() to keep each function single-purpose.
+    Sub-flow for admin crop catalogue management.
+
+    Displays the full crop list, then optionally lets the admin add a new
+    commodity.  Extracted from handle_admin_menu() to keep each function
+    focused on a single responsibility (a core principle of clean code).
     """
-    products.display_crops()  # Shows the full numbered table from products.py
-    action = Prompt.ask("\nAdd a new crop to the catalogue? [y/n]", choices=["y", "n"], default="n")
+    # Print the current catalogue as a numbered table (from products.py).
+    products.display_crops()
+
+    # INTERACTIVE INPUT: ask for a yes/no decision before proceeding.
+    action = Prompt.ask(
+        "\nAdd a new crop to the catalogue? [y/n]",
+        choices=["y", "n"],
+        default="n"   # pressing Enter without typing defaults to 'n'
+    )
+
+    # SELECTION: only attempt to add if the admin confirmed 'y'.
     if action == "y":
         new_crop = Prompt.ask("New crop name").strip()
+        # Guard: don't insert an empty string if the admin just pressed Enter.
         if new_crop:
             products.add_crop(new_crop)
 
 
 # ===========================================================================
 # SECTION 7 — MAIN APPLICATION LOOP
+# This is the top-level entry point called by main.py.
 # ===========================================================================
 
 def run_application():
     """
-    Initialise the database and enter the main event loop.
+    Initialise the database and enter the application's main event loop.
 
-    Execution Flow
+    Execution flow
     --------------
-    1. init_db()         — Create tables if they don't already exist.
-    2. seed_sample_data()— Populate demo farmers/buyers/listings on first run.
-    3. while True        — The application runs until the user selects 'Exit'
-                           or presses Ctrl+C.
-    4. Role routing      — After each login the correct sub-menu is shown.
+    1. database.init_db()         — CREATE TABLE IF NOT EXISTS for all tables.
+    2. database.seed_sample_data()— Insert demo data on first run (idempotent).
+    3. while True                 — The app runs indefinitely until the user
+                                    chooses 'Exit' or presses Ctrl+C.
+    4. auth.get_current_user()    — Check session state on every iteration.
+    5. Role routing               — if/elif directs each role to its sub-menu.
 
-    The outer try/except in __main__ catches KeyboardInterrupt so Ctrl+C
-    always exits cleanly rather than printing a traceback.
+    Iterative structure demonstrated
+    ---------------------------------
+    `while True` on line ~507 is an infinite loop — the only way out is:
+      a) The user selects 'Exit' → sys.exit(0)
+      b) The user presses Ctrl+C → caught by the try/except in __main__
+    Every other action (menu selection, login, logout) returns from the
+    sub-menu function and the loop simply starts its next iteration,
+    clearing the screen and re-drawing the appropriate menu.
+
+    Selection structure demonstrated
+    ----------------------------------
+    After reading the current user's role string, an if/elif chain decides
+    which of the three sub-menus to show.  This is the outermost "router"
+    of the entire application — one branch per role.
     """
-    # ── One-time startup ──────────────────────────────────────────────────
+    # ── One-time initialisation ────────────────────────────────────────────
+    # init_db() is safe to call every startup — it uses CREATE TABLE IF NOT
+    # EXISTS, so it only creates tables the very first time.
     database.init_db()
-    database.seed_sample_data()   # Idempotent: skips if data already exists
 
-    # ── Main event loop ───────────────────────────────────────────────────
-    # Iterative structure: keep the app alive between menu selections
+    # seed_sample_data() checks whether any users exist before inserting,
+    # so it silently skips on every run after the first.
+    database.seed_sample_data()
+
+    # ── Main event loop ────────────────────────────────────────────────────
+    # ITERATIVE STRUCTURE — while True (infinite loop):
+    # The application stays alive across unlimited menu interactions.
+    # Each iteration represents one complete "screen" — clear, draw, respond.
     while True:
-        # Clear the screen before each render for a clean terminal look
+
+        # Clear the terminal before drawing the next screen.
+        # "cls" on Windows, "clear" on Mac/Linux — os.name detects which.
         os.system("cls" if os.name == "nt" else "clear")
+
+        # Always draw the header banner at the top of every screen.
         display_header()
 
+        # Check who is currently logged in (returns None if no session).
         current_user = auth.get_current_user()
 
+        # SELECTION STRUCTURE — outer if/else: logged in vs. not logged in.
         if not current_user:
-            # No active session — show the public landing page
+            # No active session: show the public welcome panel and
+            # the visitor menu (Register / Login / Impact / Exit).
             show_welcome_screen()
             display_footer(None)
             handle_visitor_menu()
 
         else:
-            # Active session — read the role and route to the right menu.
-            # .lower() normalises stored values like 'Farmer' → 'farmer'
-            # in case of legacy data (selection structure)
+            # Active session: read the user's role and route to their menu.
+
+            # DATA TYPE: role is a str stored as lowercase in the database
+            # ('farmer', 'buyer', 'admin').  .lower() guards against any
+            # legacy data that might have been stored with a capital letter.
             role = current_user["role"].lower()
+
+            # Print the status bar showing username and role.
             display_footer(current_user)
 
+            # SELECTION STRUCTURE — nested if/elif (role-based routing):
+            # Each branch calls the matching sub-menu function and passes
+            # the full user dict so it can access user_id, location, etc.
             if role == "farmer":
                 handle_farmer_menu(current_user)
+
             elif role == "buyer":
                 handle_buyer_menu(current_user)
+
             elif role == "admin":
                 handle_admin_menu(current_user)
+
             else:
-                # Defensive: guard against unexpected role values
-                console.print("[red]Error: Unrecognised role detected. Logging out.[/red]")
+                # Defensive branch: an unrecognised role should never occur
+                # because the DB enforces a CHECK constraint on the role column,
+                # but we handle it gracefully rather than crashing.
+                console.print(
+                    "[bold red]Error: Unrecognised role. Logging out.[/bold red]"
+                )
                 auth.logout_user()
+        # End of one loop iteration — control returns to `while True` and
+        # the screen is cleared again at the top of the next iteration.
 
 
 # ---------------------------------------------------------------------------
-# Allow running this file directly (python ui.py) as well as via main.py
+# Direct execution guard
+# Allows both `python main.py` (via main.py) and `python ui.py` (direct).
+# The try/except catches Ctrl+C at the top level for a clean shutdown message.
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     try:
         run_application()
     except KeyboardInterrupt:
-        console.print("\n\n[bold green]Application closed safely. Goodbye![/bold green]")
+        # User pressed Ctrl+C at the top level — print goodbye and exit cleanly.
+        console.print(
+            "\n\n[bold green]Application closed safely. Goodbye![/bold green]"
+        )
         sys.exit(0)
