@@ -1,0 +1,48 @@
+================================================================
+   AGRI-TECH DIGITAL MARKETPLACE — SUMMARY REPORT
+================================================================
+  Generated : 2026-07-07 11:23:21
+  Team      : Lab 2, Group 5 — Moringa School
+
+================================================================
+  SECTION 1 — PLATFORM KEY PERFORMANCE INDICATORS
+================================================================
+  Total active listings : 10
+  Total completed sales : 0
+  Total food saved (kg) : 0.00 kg
+  Total donations (KSH) : KSH 0.00
+  Estimated meals given : 0 meals
+
+================================================================
+  SECTION 2 — TOP 5 CROPS BY VOLUME SOLD
+================================================================
+  No sales recorded yet.
+
+================================================================
+  SECTION 3 — TOP 5 FARMERS BY SALES COUNT
+================================================================
+  No farmer sales recorded yet.
+
+================================================================
+  SECTION 4 — TOP 5 BUYERS BY PURCHASE COUNT
+================================================================
+  No buyer purchases recorded yet.
+
+================================================================
+  SECTION 5 — FOOD BANK IMPACT
+================================================================
+  Food bank name           : Agri-Tech Food Bank
+  Total food received (kg) : 0.00 kg
+  Total cash donated (KSH) : KSH 0.00
+
+================================================================
+  SDG ALIGNMENT
+================================================================
+  SDG 1  — No Poverty             : Fair farm-gate prices
+  SDG 2  — Zero Hunger            : 2% micro-donation per sale
+  SDG 8  — Decent Work & Growth   : Direct market access for farmers
+  SDG 12 — Responsible Consumption: Demand-matched supply cuts waste
+
+================================================================
+  END OF REPORT
+================================================================
