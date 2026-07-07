@@ -30,7 +30,7 @@
         "listing_id": 4,
         "farmer_name": "grace_wanjiku",
         "crop_name": "Cabbage",
-        "quantity_kg": 200.0,
+        "quantity_kg": 196.0,
         "min_price": 20.0,
         "location": "Nyeri",
         "status": "available"
@@ -87,6 +87,15 @@
         "quantity_kg": 180.0,
         "min_price": 50.0,
         "location": "Meru",
+        "status": "available"
+    },
+    {
+        "listing_id": 11,
+        "farmer_name": "xtender",
+        "crop_name": "Avocado",
+        "quantity_kg": 60.0,
+        "min_price": 20.0,
+        "location": "Nairobi",
         "status": "available"
     }
 ]

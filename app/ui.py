@@ -272,8 +272,9 @@ def handle_farmer_menu(user):
         ("4", "View the full market board (all active listings)"),
         ("5", "View my sales history"),
         ("6", "Market analytics dashboard & price alerts"),
-        ("7", "Update my farm location"),
-        ("8", "Log out"),
+        ("7", "Bulk import listings from a CSV file"),
+        ("8", "Update my farm location"),
+        ("9", "Log out"),
     ]
     choice = _render_menu("FARMER MENU", "green", options)
 
@@ -306,10 +307,16 @@ def handle_farmer_menu(user):
         _run_safely(dashboard.display_dashboard_view)
 
     elif choice == "7":
+        # File I/O feature: reads a CSV and inserts multiple listings at once.
+        # The CSV must be at data/sample_listings.csv or a path the farmer types.
+        # Columns required: crop_name, quantity_kg, min_price, location, harvest_date
+        _run_safely(listings.bulk_import_from_csv)
+
+    elif choice == "8":
         # Updates the 'location' column for this user in the database
         _run_safely(auth.change_location)
 
-    elif choice == "8":
+    elif choice == "9":
         simulate_loading_bar("Signing out securely...")
         auth.logout_user()
         return  # Skip _wait() — user is being sent to the login screen
