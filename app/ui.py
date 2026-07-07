@@ -3,7 +3,7 @@ ui.py — Interactive Terminal Interface
 ========================================
 Member  : Maina, Njeri
 Module  : UI/UX + Reporting & Dashboard
-Team    : Lab 2, Group 5 — Moringa School
+Team    : Lab 2, Group 5 —
 
 Purpose
 -------

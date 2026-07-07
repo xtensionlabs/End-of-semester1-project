@@ -3,7 +3,7 @@ database.py — Core Data Layer
 ================================
 Member  : Otieno, David Abel
 Module  : Core Infrastructure & Database
-Team    : Lab 2, Group 5 — Moringa School
+Team    : Lab 2, Group 5 
 
 Purpose
 -------

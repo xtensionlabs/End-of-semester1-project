@@ -3,7 +3,7 @@ matching.py — Smart Listing Matcher
 =====================================
 Member  : Terer, Brian Kipkirui
 Module  : Marketplace Engine (Matching)
-Team    : Lab 2, Group 5 — Moringa School
+Team    : Lab 2, Group 5 
 
 Purpose
 -------
